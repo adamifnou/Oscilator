@@ -1,0 +1,311 @@
+<style>
+  .HarmonicOscillator-alert {
+    color: red;
+    border: 1px solid red;
+    background: #ffeeee;
+    padding: 5px;
+  }
+
+  .HarmonicOscillator-input {
+    font-family: inherit;
+    font-size: 100%;
+    margin: 0;
+    padding: 10px 7px 7px 7px;
+  }
+
+  .HarmonicOscillator-inputSmall { width: 5em; }
+  .HarmonicOscillator-isTextCentered { text-align: center; }
+</style>
+
+<p id="HarmonicOscillator-notSupportedMessage" class="HarmonicOscillator-alert">Please use a newer browser to see the simulation.</p>
+
+<div class="HarmonicOscillator">
+  <canvas class="HarmonicOscillator-canvas"></canvas>
+
+  <p class="HarmonicOscillator-isTextCentered">Mass<br>
+    <input class="HarmonicOscillator-input HarmonicOscillator-inputSmall HarmonicOscillator-isTextCentered" type="number" id="HarmonicOscillator-mass" min="1" max="10000" step="1" pattern="\d*">
+  </p>
+
+  <p class="HarmonicOscillator-isTextCentered">Spring constant<br>
+    <input class="HarmonicOscillator-input HarmonicOscillator-inputSmall HarmonicOscillator-isTextCentered" type="number" id="HarmonicOscillator-springConstant" name="springConstant" min="1" max="10000" step="1" pattern="\d*">
+  </p>
+</div>
+<br>             Frequency = 
+<div id="frek"></div>
+ <script type="text/javascript">
+let timerId = setInterval(function(){document.getElementById("frek").innerHTML = 0.15915* Math.sqrt(document.getElementById("HarmonicOscillator-springConstant").value / document.getElementById("HarmonicOscillator-mass").value);
+document.getElementById("per").innerHTML = 1/(0.15915* Math.sqrt(document.getElementById("HarmonicOscillator-springConstant").value / document.getElementById("HarmonicOscillator-mass").value));
+}, 500);
+
+  </script>
+  <div></div>
+  <br>
+  Period =
+  <div id="per"> </div>
+   
+<script>
+
+(function(){
+  
+  var physics = (function() {
+  
+    var initialConditions = {
+      position:       1.0, 
+      velocity:       0.0, 
+      springConstant: 100.0, 
+      mass:           10.0 
+    };
+
+    
+    var state = {
+      
+      position: 0,
+      velocity: 0,
+      springConstant: 0, 
+      mass: 0 
+    };
+
+    var deltaT = 0.016; 
+
+    function resetStateToInitialConditions() {
+      state.position = initialConditions.position;
+      state.velocity = initialConditions.velocity;
+      state.springConstant = initialConditions.springConstant;
+      state.mass = initialConditions.mass;
+    }
+
+    
+    function calculateAcceleration(x) {
+     
+      return -(state.springConstant / state.mass) * x;
+    }
+
+ 
+    function newVelocity(acceleration) {
+      return state.velocity + deltaT * acceleration;
+    }
+
+    
+    function newPosition() {
+      return state.position + deltaT * state.velocity;
+    }
+
+    
+    function updatePosition() {
+      var acceleration = calculateAcceleration(state.position);
+      state.velocity = newVelocity(acceleration);
+      state.position = newPosition();
+      if (state.position > 1) { state.position = 1; }
+      if (state.position < -1) { state.position = -1; }
+    }
+
+    return {
+      resetStateToInitialConditions: resetStateToInitialConditions,
+      updatePosition: updatePosition,
+      initialConditions: initialConditions,
+      state: state,
+    };
+  })();
+
+
+  var graphics = (function() {
+    var canvas = null, 
+      context = null, 
+      canvasHeight = 100,
+      boxSize = 50,
+      springInfo = {
+        height: 30, 
+        numberOfSegments: 12 
+      },
+      colors = {
+        shade30: "#a66000",
+        shade40: "#ff6c00",
+        shade50: "#ffb100"
+      };
+
+
+    function boxMiddleX(position) {
+      var boxSpaceWidth = canvas.width - boxSize;
+      return boxSpaceWidth * (position + 1) / 2 + boxSize / 2;
+    }
+
+    function drawSpring(position) {
+      var springEndX = boxMiddleX(position),
+        springTopY = (canvasHeight - springInfo.height) / 2,
+        springEndY = canvasHeight / 2,
+        canvasMiddleX = canvas.width / 2,
+        singleSegmentWidth = (canvasMiddleX - springEndX) / (springInfo.numberOfSegments - 1),
+        springGoesUp = true;
+
+      context.beginPath();
+      context.lineWidth = 1;
+      context.strokeStyle = colors.shade40;
+      context.moveTo(springEndX, springEndY);
+
+      for (var i = 0; i < springInfo.numberOfSegments; i++) {
+        var currentSegmentWidth = singleSegmentWidth;
+        if (i === 0 || i === springInfo.numberOfSegments - 1) { currentSegmentWidth /= 2; }
+
+        springEndX += currentSegmentWidth;
+        springEndY = springTopY;
+        if (!springGoesUp) { springEndY += springInfo.height; }
+        if (i === springInfo.numberOfSegments - 1) { springEndY = canvasHeight / 2; }
+
+        context.lineTo(springEndX, springEndY);
+        springGoesUp = !springGoesUp;
+      }
+
+      context.stroke();
+    }
+
+    
+    function drawBox(position) {
+      var boxTopY = Math.floor((canvasHeight - boxSize) / 2);
+      var startX = boxMiddleX(position) - boxSize / 2;
+
+      context.beginPath();
+      context.fillStyle = colors.shade50;
+      context.fillRect(startX, boxTopY, boxSize, boxSize);
+
+      context.beginPath();
+      context.lineWidth = 1;
+      context.strokeStyle = colors.shade30;
+      context.strokeRect(startX + 0.5, boxTopY + 0.5, boxSize - 1, boxSize - 1);
+    }
+
+
+    function drawMiddleLine() {
+      var middleX = Math.floor(canvas.width / 2);
+
+      context.beginPath();
+      context.moveTo(middleX, 0);
+      context.lineTo(middleX, canvas.height);
+      context.lineWidth = 2;
+      context.strokeStyle = colors.shade40;
+      context.setLineDash([2,3]);
+      context.stroke();
+      context.setLineDash([1,0]);
+    }
+
+    
+    function drawScene(position) {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      drawMiddleLine();
+      drawSpring(position);
+      drawBox(position);
+    }
+
+    function hideCanvasNotSupportedMessage() {
+      document.getElementById("HarmonicOscillator-notSupportedMessage").style.display ='none';
+    }
+
+ 
+    function fitToContainer(){
+      canvas.style.width='100%';
+      canvas.style.height= canvasHeight + 'px';
+      canvas.width  = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    }
+
+    
+    function init(success) {
+    
+      canvas = document.querySelector(".HarmonicOscillator-canvas");
+
+   
+      if (!(window.requestAnimationFrame && canvas && canvas.getContext)) { return; }
+
+     
+      context = canvas.getContext("2d");
+      if (!context) { return; } 
+
+      
+      hideCanvasNotSupportedMessage();
+
+    
+      fitToContainer();
+
+      
+      success();
+    }
+
+    return {
+      fitToContainer: fitToContainer,
+      drawScene: drawScene,
+      init: init
+    };
+  })();
+
+
+  var simulation = (function() {
+    
+    function animate() {
+      physics.updatePosition();
+      graphics.drawScene(physics.state.position);
+      window.requestAnimationFrame(animate);
+    }
+
+    function start() {
+      graphics.init(function() {
+        
+        physics.resetStateToInitialConditions();
+
+        window.addEventListener('resize', function(event){
+          graphics.fitToContainer();
+          graphics.drawScene(physics.state.position);
+        });
+
+        
+        animate();
+      });
+    }
+
+    return {
+      start: start
+    };
+  })();
+
+  simulation.start();
+
+ 
+  var userInput = (function(){
+
+    function updateSimulation(massInput, springConstantInput) {
+      physics.resetStateToInitialConditions();
+      physics.state.mass = parseFloat(massInput.value) || physics.initialConditions.mass;
+      physics.state.springConstant = parseFloat(springConstantInput.value) || physics.initialConditions.springConstant;
+    }
+
+    function init() {
+   
+
+      var massInput = document.getElementById("HarmonicOscillator-mass");
+
+      massInput.value = physics.initialConditions.mass;
+
+      
+      massInput.addEventListener('input', function() {
+        updateSimulation(massInput, springConstantInput);
+      });
+
+      
+      var springConstantInput = document.getElementById("HarmonicOscillator-springConstant");
+
+      
+      springConstantInput.value = physics.initialConditions.springConstant;
+
+      
+      springConstantInput.addEventListener('input', function() {
+        updateSimulation(massInput, springConstantInput);
+      });
+    }
+
+    return {
+      init: init
+    };
+  })();
+
+  userInput.init();
+})();
+
+</script>
